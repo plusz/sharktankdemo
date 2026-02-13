@@ -1,7 +1,20 @@
 import { NextResponse } from 'next/server';
+import { getFromCache, setInCache } from '@/app/lib/cache';
+
+const CACHE_KEY = 'stock_googl';
+const CACHE_TTL = 60; // 60 seconds
 
 export async function GET() {
   try {
+    // Check cache first
+    const cachedData = getFromCache(CACHE_KEY);
+    if (cachedData) {
+      return NextResponse.json({
+        ...cachedData,
+        cached: true,
+      });
+    }
+
     const symbol = 'GOOGL';
     const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
@@ -31,13 +44,21 @@ export async function GET() {
         ((currentPrice - previousClose) / previousClose) * 100
       ).toFixed(2);
 
-      return NextResponse.json({
+      const result = {
         symbol: symbol,
         price: currentPrice.toFixed(2),
         change: parseFloat(change) >= 0 ? `+${change}` : change,
         changePercent: parseFloat(changePercent) >= 0 ? `+${changePercent}%` : `${changePercent}%`,
         timestamp: new Date().toISOString(),
         source: 'Finnhub',
+      };
+
+      // Store in cache
+      setInCache(CACHE_KEY, result, CACHE_TTL);
+
+      return NextResponse.json({
+        ...result,
+        cached: false,
       });
     } else {
       throw new Error('Invalid response from Finnhub');
@@ -51,6 +72,15 @@ export async function GET() {
 // Fallback: Try fetching from public JSON API (finnhub alternative)
 async function fetchStockWithYahooFinance(symbol: string) {
   try {
+    // Check cache first
+    const cachedData = getFromCache(CACHE_KEY);
+    if (cachedData) {
+      return NextResponse.json({
+        ...cachedData,
+        cached: true,
+      });
+    }
+
     // Using a free public API alternative
     const response = await fetch(
       `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=price`,
@@ -67,13 +97,21 @@ async function fetchStockWithYahooFinance(symbol: string) {
       const price = data.quoteSummary?.result?.[0]?.price;
 
       if (price) {
-        return NextResponse.json({
+        const result = {
           symbol: symbol,
           price: price.regularMarketPrice?.raw?.toFixed(2) || 'N/A',
           change: `${(price.regularMarketChange?.raw || 0).toFixed(2)}`,
           changePercent: `${(price.regularMarketChangePercent?.raw || 0).toFixed(2)}%`,
           timestamp: new Date().toISOString(),
           source: 'Yahoo Finance',
+        };
+
+        // Store in cache
+        setInCache(CACHE_KEY, result, CACHE_TTL);
+
+        return NextResponse.json({
+          ...result,
+          cached: false,
         });
       }
     }
@@ -82,7 +120,7 @@ async function fetchStockWithYahooFinance(symbol: string) {
   }
 
   // Final fallback: mock data
-  return NextResponse.json({
+  const result = {
     symbol: 'GOOGL',
     price: '155.30',
     change: '+2.50',
@@ -90,5 +128,10 @@ async function fetchStockWithYahooFinance(symbol: string) {
     timestamp: new Date().toISOString(),
     source: 'Demo Data',
     mock: true,
+  };
+
+  return NextResponse.json({
+    ...result,
+    cached: false,
   });
 }

@@ -9,6 +9,8 @@ interface StockData {
   changePercent: string;
   timestamp: string;
   mock?: boolean;
+  cached?: boolean;
+  source?: string;
 }
 
 export default function Dashboard() {
@@ -122,6 +124,16 @@ export default function Dashboard() {
                     {stock?.timestamp ? new Date(stock.timestamp).toLocaleString() : 'N/A'}
                   </span>
                 </p>
+                <div className="flex gap-3 mt-2 text-xs">
+                  {stock?.source && (
+                    <span className="text-slate-500">
+                      Source: <span className="text-slate-400">{stock.source}</span>
+                    </span>
+                  )}
+                  {stock?.cached && (
+                    <span className="text-blue-400">✓ Cached (60s TTL)</span>
+                  )}
+                </div>
                 {stock?.mock && (
                   <p className="text-amber-400 text-sm mt-2">
                     ℹ️ Using demonstration data
